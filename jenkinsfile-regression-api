@@ -10,7 +10,7 @@ node() {
     ])
   ])
 
-  dir('sensiaglobal-automation-e2e') {
+  dir('Cucumber_Pipeline') {
     stage('Checkout') {
       checkout(
         [
