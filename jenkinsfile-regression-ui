@@ -1,0 +1,149 @@
+node('winTestcafe') {
+  properties([
+    parameters([
+      string(name: 'GIT_BRANCH', defaultValue: 'master',
+        description: 'Git branch to run the tests from', ),
+      choice(choices: ['automationuser3@sensiaglobal.com','automationuser2@sensiaglobal.com','automationuser1@sensiaglobal.com','beniamin.kis@sensiaglobal.com', 'maulik.kanani@sensiaglobal.com', 'andriy.bogash@sensiaglobal.com'],
+        description: 'Which user from config file?', name: 'CONFIG_USER'),
+      string(name: 'OTHER_USER', description: 'Other CP Username'),
+      password(name: 'SECRET_KEY',defaultValue: null,description: 'Other CP Password (not required for config username)'),
+      choice(choices: ['DEV','QA'],
+        description: 'Which test environment?', name: 'TARGET'),
+      string(name: 'ADDITIONAL_PARAMS', defaultValue: '',
+                description: 'Additional parameters (ex. --test-meta "test_id=CP-XXXX")'),
+      string(name: 'TEST_GREP_REGEX',defaultValue: '',
+                description: 'regex for test-grep (ex. "^COPR-10028.*|^COPR-10028.*"). NB: others params will be ignored'),
+      booleanParam(name: 'NEW_ASSET_CREATE', defaultValue: false,
+        description: 'Should a new asset be created for certain tests?'),
+      booleanParam(name: 'IS_QUARANTINE', defaultValue: true,
+        description: 'Retry failed tests (quarantine mode)'),
+      string(name: 'use_results_from_build_number',
+        description: 'Results from #build_number will be copied to this build'),
+    ])
+  ])
+
+  dir('sensiaglobal-automation-e2e') {
+    stage('Checkout') {
+      checkout(
+        [
+          $class: 'GitSCM', branches: [[name: '*/${GIT_BRANCH}']], doGenerateSubmoduleConfigurations: false,
+          extensions: [], submoduleCfg: [], userRemoteConfigs: [[
+            credentialsId: 'bitbucket-ssh-private-key',
+            url: 'git@bitbucket.org:sensiaglobal/sensiaglobal-automation-e2e.git'
+          ]]
+        ]
+      )
+      currentBuild.description = 'Branch: ' + GIT_BRANCH
+      currentBuild.description += '\nEnv: ' + TARGET
+    }
+
+    stage('Install dependencies') {
+        echo 'Running `npm install`'
+        bat 'npm install'
+    }
+
+    stage('Clean previous results') {
+      script{
+          echo 'Running `npm run cleanup`'
+          bat 'npm run cleanup'
+
+          if(use_results_from_build_number){
+              try {
+                  copyArtifacts filter: 'results.zip', fingerprintArtifacts: true, projectName: "${env.JOB_BASE_NAME}", selector: specific("${use_results_from_build_number}")
+                  unzip dir: 'results', glob: '', zipFile: 'results.zip'
+              } catch (err) {
+                  err.getMessage()
+              }
+          }
+      }
+    }
+
+    stage('Run Tests') {
+      environment {
+        JENKINS='true'
+        TARGET='${TARGET}'
+        NEW_ASSET_CREATE='${NEW_ASSET_CREATE}'
+        IS_QUARANTINE='${IS_QUARANTINE}'
+        SECRET_KEY='${SECRET_KEY}'
+        ADDITIONAL_PARAMS='${ADDITIONAL_PARAMS}'
+        LOG_LEVEL='info'
+      }
+      ansiColor('xterm') {
+        env.USER_NAME = params.OTHER_USER ? params.OTHER_USER : params.CONFIG_USER
+        def quarantineModeParam=' --quarantine-mode attemptLimit=3,successThreshold=1 '
+
+        if (!TEST_GREP_REGEX.isEmpty()) {
+            def addParams = '';
+            if (IS_QUARANTINE == 'true') {
+                addParams = quarantineModeParam + addParams
+            }
+            try {
+                bat "npm run jenkins:ui-test -- --test-grep "+'"'+TEST_GREP_REGEX+'"'+ addParams
+                }catch(err){
+                   err.getMessage()
+                }
+        } else {
+            def addParams = ' --test-meta scope=regression,component=cp_core';
+            if (!ADDITIONAL_PARAMS.isEmpty()) {
+                addParams = ADDITIONAL_PARAMS + addParams
+            }
+            if (IS_QUARANTINE == 'true') {
+                addParams = quarantineModeParam + addParams
+            }
+            try {
+                bat "npm run jenkins:ui-test -- ${addParams},migrated=true"
+            } catch (err) {
+                err.getMessage()
+            }
+            try {
+                bat "npm run jenkins:ui-test -- ${addParams},cp4=true"
+            } catch (err) {
+                err.getMessage()
+            }
+
+        }
+        }
+      }
+
+    stage('Allure Report') {
+      script {
+        dir('results/allure/ui'){
+          def props = [
+            ENV:TARGET,
+            RUN_SCRIPT:'ui-test-regression',
+            PARAMS:'--test-meta scope=regression ' + ADDITIONAL_PARAMS,
+            NEW_ASSET_CREATION_TRIGGERED:NEW_ASSET_CREATE,
+            GIT_BRANCH:GIT_BRANCH,
+            QUARANTINE:IS_QUARANTINE
+          ]
+          def content = props.collect{entry->entry.key+"="+entry.value}.join('\n')
+            writeFile file: 'environment.properties', text: content
+        }
+        allure([
+          includeProperties: false,
+          jdk: '',
+          properties: [],
+          reportBuildPolicy: 'ALWAYS',
+          results: [[path: 'results/allure/ui']],
+        ])
+      }
+    }
+
+    stage ('xUnit Result') {
+      try {
+        junit keepLongStdio: true,
+        testDataPublishers: [[$class: 'TestCafePublisher']],
+        testResults: 'results/xUnitReport.xml'
+      } catch (err) {
+        err.getMessage()
+      }
+    }
+
+    stage ('Archive Results') {
+      bat 'del results.zip'
+      zip zipFile: 'results.zip', archive: true, dir: 'results'
+      archiveArtifacts allowEmptyArchive: true, artifacts: 'results.zip'
+      archiveArtifacts allowEmptyArchive: true, artifacts: 'failed-tests.txt'
+    }
+  }
+}
