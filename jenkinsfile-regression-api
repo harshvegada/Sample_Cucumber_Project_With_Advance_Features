@@ -1,4 +1,4 @@
-node('winTestcafe') {
+node() {
   properties([
     parameters([
       string(name: 'PARAMS', defaultValue: '',
