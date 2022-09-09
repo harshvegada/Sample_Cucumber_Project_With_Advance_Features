@@ -7,12 +7,8 @@ node() {
         description: 'Git branch to run the tests from', ),
       choice(choices: ['DEV', 'QA'],
         description: 'Which test environment?', name: 'TARGET'),
-      choice(choices: ['maulik.kanani@sensiaglobal.com', 'beniamin.kis@sensiaglobal.com', 'andriy.bogash@sensiaglobal.com'],
-        description: 'Which user from config file?', name: 'CONFIG_USER'),
-      string(name: 'OTHER_USER', description: 'Other CP Username'),
-      password(name: 'SECRET_KEY',defaultValue: null,description: 'Other CP Password (not required for config username)'),
-      string(name: 'use_results_from_build_number',
-         description: 'Results from #build_number will be copied to this build')
+      choice(choices: ['harshvegada1997@gmail.com', 'write2technocredits@gmail.com'],
+        description: 'Which user from config file?', name: 'CONFIG_USER')
     ])
   ])
 
@@ -22,8 +18,7 @@ node() {
         [
           $class: 'GitSCM', branches: [[name: '*/${GIT_BRANCH}']], doGenerateSubmoduleConfigurations: false,
           extensions: [], submoduleCfg: [], userRemoteConfigs: [[
-            credentialsId: 'bitbucket-ssh-private-key',
-            url: 'git@bitbucket.org:sensiaglobal/sensiaglobal-automation-e2e.git'
+            url: 'git@github.com:harshvegada/Sample_Cucumber_Project_With_Advance_Features.git'
           ]]
         ]
       )
@@ -32,13 +27,13 @@ node() {
     }
 
     stage('Install dependencies') {
-        echo 'Running `npm install`'
-        bat 'npm install'
+        echo 'Running `mvn install`'
+        bat 'mvn install'
     }
 
     stage('Clean previous results') {
-      echo 'Running `npm run cleanup`'
-      bat 'npm run cleanup'
+      echo 'Running `mvn clean`'
+      bat 'mvn clean'
         if(use_results_from_build_number){
           try {
               copyArtifacts filter: 'results.zip', fingerprintArtifacts: true, projectName: "${env.JOB_BASE_NAME}", selector: specific("${use_results_from_build_number}")
@@ -52,13 +47,11 @@ node() {
     stage('Run Tests') {
       environment {
         JENKINS='true'
-        TARGET='${TARGET}'
-        SECRET_KEY='${SECRET_KEY}'
       }
       ansiColor('xterm') {
         env.USER_NAME = params.OTHER_USER ? params.OTHER_USER : params.CONFIG_USER
         try {
-          bat "npm run jenkins:api-test -- ${PARAMS}"
+          bat "mvn test"
         } catch (err) {
           err.getMessage()
         }
