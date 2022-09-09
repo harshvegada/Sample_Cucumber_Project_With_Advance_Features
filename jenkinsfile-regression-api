@@ -48,7 +48,7 @@ node() {
       }
       bat "mvn test"
     }
-    
+
     stage ('Archive Results') {
       bat 'del results.zip'
       zip zipFile: 'results.zip', archive: true, dir: 'results'
