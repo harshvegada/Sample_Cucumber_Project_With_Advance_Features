@@ -1,8 +1,6 @@
 node() {
   properties([
     parameters([
-      string(name: 'PARAMS', defaultValue: '',
-        description: 'Additional parameters (ex. --fgrep "regression", -f "COPR-9453", --grep "DPT API Tests")', ),
       string(name: 'GIT_BRANCH', defaultValue: 'master',
         description: 'Git branch to run the tests from', ),
       choice(choices: ['DEV', 'QA'],
@@ -48,15 +46,9 @@ node() {
       environment {
         JENKINS='true'
       }
-      ansiColor('xterm') {
-        env.USER_NAME = params.OTHER_USER ? params.OTHER_USER : params.CONFIG_USER
-        try {
-          bat "mvn test"
-        } catch (err) {
-          err.getMessage()
-        }
-      }
+      bat "mvn test"
     }
+    
     stage ('Archive Results') {
       bat 'del results.zip'
       zip zipFile: 'results.zip', archive: true, dir: 'results'
