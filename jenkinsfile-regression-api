@@ -1,8 +1,6 @@
 node() {
   properties([
     parameters([
-      string(name: 'PARAMS', defaultValue: '',
-        description: 'Additional parameters (ex. --fgrep "regression", -f "COPR-9453", --grep "DPT API Tests")', ),
       string(name: 'GIT_BRANCH', defaultValue: 'master',
         description: 'Git branch to run the tests from', ),
       choice(choices: ['DEV', 'QA'],
