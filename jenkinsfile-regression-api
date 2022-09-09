@@ -1,0 +1,95 @@
+node('winTestcafe') {
+  properties([
+    parameters([
+      string(name: 'PARAMS', defaultValue: '',
+        description: 'Additional parameters (ex. --fgrep "regression", -f "COPR-9453", --grep "DPT API Tests")', ),
+      string(name: 'GIT_BRANCH', defaultValue: 'master',
+        description: 'Git branch to run the tests from', ),
+      choice(choices: ['DEV', 'QA'],
+        description: 'Which test environment?', name: 'TARGET'),
+      choice(choices: ['maulik.kanani@sensiaglobal.com', 'beniamin.kis@sensiaglobal.com', 'andriy.bogash@sensiaglobal.com'],
+        description: 'Which user from config file?', name: 'CONFIG_USER'),
+      string(name: 'OTHER_USER', description: 'Other CP Username'),
+      password(name: 'SECRET_KEY',defaultValue: null,description: 'Other CP Password (not required for config username)'),
+      string(name: 'use_results_from_build_number',
+         description: 'Results from #build_number will be copied to this build')
+    ])
+  ])
+
+  dir('sensiaglobal-automation-e2e') {
+    stage('Checkout') {
+      checkout(
+        [
+          $class: 'GitSCM', branches: [[name: '*/${GIT_BRANCH}']], doGenerateSubmoduleConfigurations: false,
+          extensions: [], submoduleCfg: [], userRemoteConfigs: [[
+            credentialsId: 'bitbucket-ssh-private-key',
+            url: 'git@bitbucket.org:sensiaglobal/sensiaglobal-automation-e2e.git'
+          ]]
+        ]
+      )
+      currentBuild.description = 'Branch: ' + GIT_BRANCH
+      currentBuild.description += '\nEnv: ' + TARGET
+    }
+
+    stage('Install dependencies') {
+        echo 'Running `npm install`'
+        bat 'npm install'
+    }
+
+    stage('Clean previous results') {
+      echo 'Running `npm run cleanup`'
+      bat 'npm run cleanup'
+        if(use_results_from_build_number){
+          try {
+              copyArtifacts filter: 'results.zip', fingerprintArtifacts: true, projectName: "${env.JOB_BASE_NAME}", selector: specific("${use_results_from_build_number}")
+              unzip dir: 'results', glob: '', zipFile: 'results.zip'
+          } catch (err) {
+              err.getMessage()
+          }
+        }
+    }
+
+    stage('Run Tests') {
+      environment {
+        JENKINS='true'
+        TARGET='${TARGET}'
+        SECRET_KEY='${SECRET_KEY}'
+      }
+      ansiColor('xterm') {
+        env.USER_NAME = params.OTHER_USER ? params.OTHER_USER : params.CONFIG_USER
+        try {
+          bat "npm run jenkins:api-test -- ${PARAMS}"
+        } catch (err) {
+          err.getMessage()
+        }
+      }
+    }
+    stage ('Archive Results') {
+      bat 'del results.zip'
+      zip zipFile: 'results.zip', archive: true, dir: 'results'
+      archiveArtifacts allowEmptyArchive: true, artifacts: 'results.zip'
+    }
+
+    stage('Allure Report') {
+      script {
+        dir('results/allure/api'){
+          def props = [
+            ENV:TARGET,
+            RUN_SCRIPT:'api-test',
+            PARAMS:PARAMS,
+            GIT_BRANCH:GIT_BRANCH
+          ]
+          def content = props.collect{entry->entry.key+"="+entry.value}.join('\n')
+            writeFile file: 'environment.properties', text: content
+        }
+        allure([
+          includeProperties: false,
+          jdk: '',
+          properties: [],
+          reportBuildPolicy: 'ALWAYS',
+          results: [[path: 'results/allure/api']],
+        ])
+      }
+    }
+  }
+}
