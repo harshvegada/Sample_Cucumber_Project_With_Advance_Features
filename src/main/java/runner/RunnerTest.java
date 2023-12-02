@@ -1,13 +1,13 @@
 package runner;
 
+import com.github.mkolisnyk.cucumber.runner.ExtendedCucumber;
+import com.github.mkolisnyk.cucumber.runner.ExtendedCucumberOptions;
 import cucumber.api.CucumberOptions;
 import cucumber.api.SnippetType;
-import cucumber.api.junit.Cucumber;
 import org.junit.runner.RunWith;
 
-@RunWith(Cucumber.class)
+@RunWith(ExtendedCucumber.class)
 @CucumberOptions(
-
         features = "src/test/java/featureFiles/",
         glue = "steps",
         monochrome = true,
@@ -22,7 +22,9 @@ import org.junit.runner.RunWith;
                 "rerun:target/rerun.txt"
         }
 )
+@ExtendedCucumberOptions(
+        retryCount = 1
+)
 public class RunnerTest {
-
 
 }
