@@ -7,7 +7,7 @@ Feature: Automation Site
     And user enter "harsh" in username on registration page
     And user enter "harsh12345" in password on registration page
     And user click on "submit" button on registration page
-    Then user verify "failed" message on alert
+    Then user verify "Success!" message on alert
 
   @smoke @2
   Scenario: Verify Success message on less than 8 chars in passoword

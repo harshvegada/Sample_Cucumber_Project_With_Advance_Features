@@ -16,7 +16,7 @@ public class RegistrationPage extends PredefinedActions {
     @FindBy(id = "pwdSignin")
     WebElement loginPassword;
 
-    @FindBy(id = "btnsubmitdetails")
+    @FindBy(css = "button[id='btnsubmitdetails']")
     WebElement loginSubmitButton;
 
     public RegistrationPage() {
@@ -33,7 +33,7 @@ public class RegistrationPage extends PredefinedActions {
     }
 
     public void clickOnSubmitButton() {
-        clickOnElement(loginSubmitButton);
+        clickOnElementUsingJS(loginSubmitButton);
     }
 
     public void clickOnRegistrationTab() {
