@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<testsuite failures="1" name="Test Suite" skipped="0" tests="1" time="5.739">
+
+<testcase classname="Automation Site" name="Verify Success message on 8 or more than 8 chars in passoword" time="5.431">
+    
+    <failure type="java.lang.AssertionError">
+        
+        <![CDATA[java.lang.AssertionError
+	at org.junit.Assert.fail(Assert.java:86)
+	at org.junit.Assert.fail(Assert.java:95)
+	at steps.RegistrationSteps.user_enter_in_username_on_registration_page(RegistrationSteps.java:22)
+	at ✽.user enter "harsh" in username on registration page(file:///D:/Technocredits%20Automation%20Frameworks/Automation_Frameworks/Sample_Cucumber_Project_With_Advance_Features/src/test/resources/featureFiles/Registration.feature:7)
+]]>
+        
+    </failure>
+    
+    <system-out>
+        <![CDATA[
+And user click on registration page.........................................passed
+And user enter "harsh" in username on registration page.....................failed
+And user enter "harsh12345" in password on registration page................skipped
+And user click on "submit" button on registration page......................skipped
+Then user verify "Success!" message on alert................................skipped
+]]>
+    </system-out>
+    
+</testcase>
+
+</testsuite>
